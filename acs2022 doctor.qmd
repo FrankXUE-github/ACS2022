@@ -1,0 +1,64 @@
+---
+title: "Analysis of Doctoral Degree Holders in the 2022 ACS"
+author: "Feiyang Xue"
+format:
+  pdf:
+    pdf-engine: pdflatex
+---
+
+# Introduction
+This report aims to estimate the total number of respondents in each state based on the ratio of respondents with doctoral degrees using the 2022 ACS sample data obtained from IPUMS. We will use California's sample data as the baseline for applying the Laplace ratio estimators approach.
+
+# Data Access
+The data was obtained from the IPUMS USA platform. The relevant variables include:
+- **StateICP**: State identifier
+- **EDUCD**: Educational attainment, specifically for doctoral degrees
+
+We downloaded the dataset and loaded it into R for analysis. Below is the code used to clean and process the data.
+
+```{r include=FALSE}
+# Load Total Respondents Data
+Total_data <- read.csv("total.csv", row.names = NULL, skip = 6, header = FALSE)
+colnames(Total_data) <- c("row_names", "State_name", "Total_Count")
+Total_data_cleaned <- Total_data[, -1]
+head(Total_data_cleaned)
+
+# Load Doctoral Degree Holders Data
+Doctor_data <- read.csv("doctor.csv", row.names = NULL, skip = 5, header = TRUE)
+colnames(Doctor_data) <- c("row_names", "State_name", "Doctoral_Degree_Count", "Total_Count")
+Doctor_data_cleaned <- Doctor_data[!Doctor_data$row_names != "N of cases", ]
+Doctor_data_cleaned <- Doctor_data_cleaned[, -4]
+Doctor_data_cleaned <- Doctor_data_cleaned[, -1]
+head(Doctor_data_cleaned)
+```
+
+Ratio Estimation Calculation
+We use the provided sample size of 391,171 respondents from California to calculate the ratio of doctoral degree holders to the total respondents in California. This ratio is then applied to estimate the total number of respondents in other states based on their number of doctoral degree holders.
+```{r}
+# Subset for California Doctoral Data
+California_doctor_data <- subset(Doctor_data_cleaned, State_name == "71 California")
+
+# Calculate the California Ratio
+california_ratio <- as.integer(California_doctor_data$Doctoral_Degree_Count) / 391171
+
+# Apply Ratio Estimation to Other States
+Total_data_cleaned$Estimated_Total_Respondents <- ceiling(as.integer(Doctor_data_cleaned$Doctoral_Degree_Count) / california_ratio)
+
+# Calculate the Difference between Estimated and Actual Respondents
+Total_data_cleaned$Difference <- Total_data_cleaned$Total_Count - Total_data_cleaned$Estimated_Total_Respondents
+head(Total_data_cleaned)
+```
+The table below presents a comparison between the actual total respondents and the estimated total respondents in each state, along with the differences.
+
+```{r}
+library(knitr)
+kable(head(Total_data_cleaned))
+```
+
+Analysis
+There may be multiple reasons cause the difference;
+State-Specific Education Distribution: The ratio estimator is sensitive to the distribution of educational attainment within each state. States that have a different ratio of doctoral degree holders to the general population compared to California may exhibit larger differences.
+
+Population Size and Demographics: States with larger populations or a significantly different demographic composition might see bigger discrepancies because the ratio estimator is based on the specific characteristics of California's population, which may not generalize well to other states.
+
+Sampling and Weighting: ACS data uses weights to estimate population figures. If the sample sizes in some states are smaller or if their weighting factors differ significantly from California's, this could lead to over- or under-estimation of the total number of respondents.
